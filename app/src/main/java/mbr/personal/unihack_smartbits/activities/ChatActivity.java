@@ -21,6 +21,8 @@ import org.json.JSONObject;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -100,12 +102,17 @@ public class ChatActivity extends AppCompatActivity {
         OkHttpClient client = new OkHttpClient();
         RequestBody body = RequestBody.create(payload.toString(), JSON);
         Thread saveThread = new Thread(() -> {
-            Request request = new Request.Builder()
-                    .url(url)
-                    .header("User-Agent", "OkHttp Headers.java")
-                    .addHeader("Authorization", LoginActivity.accessToken)
-                    .post(body)
-                    .build();
+            Request request;
+            try {
+                request = new Request.Builder()
+                        .url(url)
+                        .header("User-Agent", "OkHttp Headers.java")
+                        .addHeader("Authorization", LoginActivity.accessToken)
+                        .post(body)
+                        .build();
+            } catch (Exception e ) {
+                return;
+            }
             try (Response response = client.newCall(request).execute()) {
                 if (!response.isSuccessful())
                     throw new AuthenticationException(response.body().string());
@@ -148,7 +155,7 @@ public class ChatActivity extends AppCompatActivity {
                 String tempMsg = new String(readBuffer,0, msg.arg1);
                 if (tempMsg.length() == 0)  break;
                 MessageItem msgItem = new MessageItem(tempMsg, true);
-                if (tempMsg.equals("\r")) break;
+                if (tempMsg.equals("\r\n")) break;
                 adapter.add(msgItem);
                 adapter.notifyDataSetChanged();
                 vMessages.smoothScrollToPosition(adapter.getItemCount());
