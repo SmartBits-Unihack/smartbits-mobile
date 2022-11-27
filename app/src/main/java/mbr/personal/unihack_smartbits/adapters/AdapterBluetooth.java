@@ -1,5 +1,6 @@
 package mbr.personal.unihack_smartbits.adapters;
 
+import android.content.Intent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -13,6 +14,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.util.List;
 
 import mbr.personal.unihack_smartbits.R;
+import mbr.personal.unihack_smartbits.activities.ChatActivity;
 import mbr.personal.unihack_smartbits.types.BluetoothItem;
 
 public class AdapterBluetooth extends RecyclerView.Adapter<AdapterBluetooth.ViewHolder> {
@@ -40,11 +42,11 @@ public class AdapterBluetooth extends RecyclerView.Adapter<AdapterBluetooth.View
 
         holder.background.setOnClickListener(v -> {
             try {
-//                Intent chatIntent = new Intent(v.getContext(), ChatActivity.class);
-//
-//                chatIntent.putExtra("address", holder.address.getText().toString());
-//
-//                v.getContext().startActivity(chatIntent);
+                Intent chatIntent = new Intent(v.getContext(), ChatActivity.class);
+
+                chatIntent.putExtra("address", holder.address.getText().toString());
+
+                v.getContext().startActivity(chatIntent);
             } catch (Exception err) {
                 Toast.makeText(v.getContext(), err.getMessage(), Toast.LENGTH_LONG).show();
             }

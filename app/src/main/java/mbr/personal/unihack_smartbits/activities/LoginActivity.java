@@ -44,55 +44,66 @@ public class LoginActivity extends AppCompatActivity {
                 // goto next activity
                 Intent bluetoothIntent = new Intent(this, BluetoothActivity.class);
                 startActivity(bluetoothIntent);
-            } catch (JSONException exc) {
-                Log.e(TAG, "Failed packing the payload for the request!");
-                Log.e(TAG, exc.getMessage());
-                Toast.makeText(this, "The input is of incorrect format.",
-                                    Toast.LENGTH_SHORT).show();
-            } catch (IOException exc) {
-                Log.e(TAG, "Failed to make the request to the server.");
-                Log.e(TAG, exc.getMessage());
-                Toast.makeText(this, "The input is of incorrect format.",
-                        Toast.LENGTH_SHORT).show();
-            } catch (AuthenticationException exc) {
-                Toast.makeText(this, "Log in failed.",
-                        Toast.LENGTH_SHORT).show();
-                Log.e(TAG, "Authentication failed! With message below: ");
-                Log.e(TAG, exc.getMessage());
+            } catch (InterruptedException exc) {
+                Log.e(TAG, "The thread running the log in function was interrupted.");
             }
         });
 
     }
 
     private void login(String username, String password)
-            throws JSONException,
-                   IOException,
-                   AuthenticationException {
+            throws InterruptedException {
         String url = "http://85.120.206.70:8080/api/v1/users/signin";
         MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
         JSONObject payload = new JSONObject();
-        payload.put("username", username);
-        payload.put("password", password);
+        try {
+            payload.put("username", username);
+            payload.put("password", password);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
 
         OkHttpClient client = new OkHttpClient();
         RequestBody body = RequestBody.create(payload.toString(), JSON);
-        Request request = new Request.Builder()
-                .url(url)
-                .post(body)
-                .build();
-        try (Response response = client.newCall(request).execute()) {
-            if (response.isSuccessful()) {
-                Objects.requireNonNull(response.body());
-                JSONObject responseJson = new JSONObject(response.body().string());
-                LoginActivity.accessToken = responseJson.get("access_token").toString();
-                LoginActivity.refreshToken = responseJson.get("refresh_token").toString();
-            } else {
-                Toast.makeText(this, "Failed to sign in user!",
+        Thread loginThread = new Thread(() -> {
+            Request request = new Request.Builder()
+                    .url(url)
+                    .post(body)
+                    .build();
+            try (Response response = client.newCall(request).execute()) {
+                if (response.isSuccessful()) {
+                    Objects.requireNonNull(response.body());
+                    JSONObject responseJson = new JSONObject(response.body().string());
+                    LoginActivity.accessToken = responseJson.get("access_token").toString();
+                    LoginActivity.refreshToken = responseJson.get("refresh_token").toString();
+                } else {
+                    Toast.makeText(LoginActivity.this, "Failed to sign in user!",
+                            Toast.LENGTH_SHORT).show();
+                    throw new AuthenticationException(response.body().string());
+                }
+            } catch (AuthenticationException exc) {
+                Toast.makeText(LoginActivity.this, "Log in failed.",
                         Toast.LENGTH_SHORT).show();
-                throw new AuthenticationException(response.body().string());
+                Log.e(TAG, "Authentication failed! With message below: ");
+                Log.e(TAG, exc.getMessage());
+            } catch (JSONException exc) {
+                Log.e(TAG, "Failed packing the payload for the request!");
+                Log.e(TAG, exc.getMessage());
+                Toast.makeText(LoginActivity.this, "The input is of incorrect format.",
+                        Toast.LENGTH_SHORT).show();
+            } catch (IOException exc) {
+                Log.e(TAG, "Failed to make the request to the server.");
+                Log.e(TAG, exc.getMessage());
+                Toast.makeText(LoginActivity.this, "The input is of incorrect format.",
+                        Toast.LENGTH_SHORT).show();
             }
-        }
+        });
+
+        loginThread.start();
+
+        loginThread.join();
+
     }
 
 }
