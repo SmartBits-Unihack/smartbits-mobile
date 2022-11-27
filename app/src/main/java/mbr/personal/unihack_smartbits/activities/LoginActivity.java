@@ -78,25 +78,17 @@ public class LoginActivity extends AppCompatActivity {
                     LoginActivity.accessToken = responseJson.get("access_token").toString();
                     LoginActivity.refreshToken = responseJson.get("refresh_token").toString();
                 } else {
-                    Toast.makeText(LoginActivity.this, "Failed to sign in user!",
-                            Toast.LENGTH_SHORT).show();
                     throw new AuthenticationException(response.body().string());
                 }
             } catch (AuthenticationException exc) {
-                Toast.makeText(LoginActivity.this, "Log in failed.",
-                        Toast.LENGTH_SHORT).show();
                 Log.e(TAG, "Authentication failed! With message below: ");
                 Log.e(TAG, exc.getMessage());
             } catch (JSONException exc) {
                 Log.e(TAG, "Failed packing the payload for the request!");
                 Log.e(TAG, exc.getMessage());
-                Toast.makeText(LoginActivity.this, "The input is of incorrect format.",
-                        Toast.LENGTH_SHORT).show();
             } catch (IOException exc) {
                 Log.e(TAG, "Failed to make the request to the server.");
                 Log.e(TAG, exc.getMessage());
-                Toast.makeText(LoginActivity.this, "The input is of incorrect format.",
-                        Toast.LENGTH_SHORT).show();
             }
         });
 

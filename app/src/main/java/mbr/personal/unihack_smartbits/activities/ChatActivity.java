@@ -60,7 +60,6 @@ public class ChatActivity extends AppCompatActivity {
     List<MessageItem> messages;
     AdapterMessages adapter;
 
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -81,8 +80,6 @@ public class ChatActivity extends AppCompatActivity {
             client.start();
 
             connectedDevice = device.getAddress();
-
-
             btnSend = findViewById(R.id.btn_send);
             txtMessage = findViewById(R.id.etx_message);
 
@@ -93,7 +90,7 @@ public class ChatActivity extends AppCompatActivity {
 
     private void saveMessageToDatabase(String message, boolean phone)
             throws InterruptedException, JSONException {
-        String url = "http://85.120.206.70:8080/api/v1/users/signin";
+        String url = "http://85.120.206.70:8080/api/v1/messages";
         MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
         JSONObject payload = new JSONObject();
@@ -102,7 +99,7 @@ public class ChatActivity extends AppCompatActivity {
         payload.put("is_phone", phone);
         OkHttpClient client = new OkHttpClient();
         RequestBody body = RequestBody.create(payload.toString(), JSON);
-        Thread loginThread = new Thread(() -> {
+        Thread saveThread = new Thread(() -> {
             Request request = new Request.Builder()
                     .url(url)
                     .header("User-Agent", "OkHttp Headers.java")
@@ -110,37 +107,20 @@ public class ChatActivity extends AppCompatActivity {
                     .post(body)
                     .build();
             try (Response response = client.newCall(request).execute()) {
-                if (response.isSuccessful()) {
-                    Objects.requireNonNull(response.body());
-                    JSONObject responseJson = new JSONObject(response.body().string());
-                    LoginActivity.accessToken = responseJson.get("access_token").toString();
-                    LoginActivity.refreshToken = responseJson.get("refresh_token").toString();
-                } else {
-                    Toast.makeText(ChatActivity.this, "Failed to sign in user!",
-                            Toast.LENGTH_SHORT).show();
+                if (!response.isSuccessful())
                     throw new AuthenticationException(response.body().string());
-                }
             } catch (AuthenticationException exc) {
-                Toast.makeText(ChatActivity.this, "Log in failed.",
-                        Toast.LENGTH_SHORT).show();
                 Log.e(TAG, "Authentication failed! With message below: ");
                 Log.e(TAG, exc.getMessage());
-            } catch (JSONException exc) {
-                Log.e(TAG, "Failed packing the payload for the request!");
-                Log.e(TAG, exc.getMessage());
-                Toast.makeText(ChatActivity.this, "The input is of incorrect format.",
-                        Toast.LENGTH_SHORT).show();
             } catch (IOException exc) {
                 Log.e(TAG, "Failed to make the request to the server.");
                 Log.e(TAG, exc.getMessage());
-                Toast.makeText(ChatActivity.this, "The input is of incorrect format.",
-                        Toast.LENGTH_SHORT).show();
             }
         });
 
-        loginThread.start();
+        saveThread.start();
 
-        loginThread.join();
+        saveThread.join();
     }
 
     Handler mHandler = new Handler(msg -> {
@@ -166,10 +146,17 @@ public class ChatActivity extends AppCompatActivity {
 
                 byte[] readBuffer = (byte[]) msg.obj;
                 String tempMsg = new String(readBuffer,0, msg.arg1);
+                if (tempMsg.length() == 0)  break;
                 MessageItem msgItem = new MessageItem(tempMsg, true);
                 if (tempMsg.equals("\r")) break;
                 adapter.add(msgItem);
                 adapter.notifyDataSetChanged();
+                vMessages.smoothScrollToPosition(adapter.getItemCount());
+                try {
+                    saveMessageToDatabase(tempMsg, false);
+                } catch (InterruptedException | JSONException e) {
+                    e.printStackTrace();
+                }
                 break;
         }
         return true;
@@ -223,6 +210,8 @@ public class ChatActivity extends AppCompatActivity {
                                 new MessageItem(txtMessage.getText().toString(), false);
                         adapter.add(item);
                         adapter.notifyDataSetChanged();
+                        vMessages.smoothScrollToPosition(adapter.getItemCount());
+                        txtMessage.setText("");
                     }
             );
 
@@ -254,12 +243,21 @@ public class ChatActivity extends AppCompatActivity {
 
         public void write(byte[] bytes){
             try {
-                byte[] data = new byte[bytes.length + 1];
+                byte[] data = new byte[27];
                 int i = 0;
-                for (byte b : bytes) {
-                    data[i++] = b;
+                try {
+                    for (byte b : bytes) {
+                        data[i++] = b;
+                    }
+                } catch (IndexOutOfBoundsException exc) {
+                    Toast.makeText(ChatActivity.this,
+                            "The max length of a message is 27 characters!",
+                            Toast.LENGTH_SHORT).show();
                 }
-                data[i] = '\n';
+                while (i < 27) {
+                    data[i++] = 0x20;
+                }
+
                 mOutputStream.write(data);
                 mOutputStream.flush();
             } catch (IOException e){
