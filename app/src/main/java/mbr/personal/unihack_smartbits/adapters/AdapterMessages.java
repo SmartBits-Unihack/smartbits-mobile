@@ -37,9 +37,9 @@ public class AdapterMessages extends RecyclerView.Adapter<AdapterMessages.ViewHo
         View v = null;
 
         if (viewType == OTHER_MESSAGE_TYPE) {
-            v = inflater.inflate(R.layout.message_other, parent, false);
+            v = inflater.inflate(R.layout.glove_message_item, parent, false);
         } else if (viewType == ME_MESSAGE_TYPE) {
-            v = inflater.inflate(R.layout.message_me, parent, false);
+            v = inflater.inflate(R.layout.message_item, parent, false);
         }
 
         return new ViewHolder(v);
@@ -47,13 +47,7 @@ public class AdapterMessages extends RecyclerView.Adapter<AdapterMessages.ViewHo
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        holder.timestamp.setText(data.get(position).getTimestamp());
         holder.message.setText(data.get(position).getMessage());
-        if (data.get(position).isOther()) {
-            holder.image.setImageResource(R.drawable.cg_logo);
-        } else {
-            holder.image.setImageResource(R.drawable.leaderboard_king);
-        }
     }
 
     @Override
@@ -80,8 +74,6 @@ public class AdapterMessages extends RecyclerView.Adapter<AdapterMessages.ViewHo
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
             this.message = (TextView) itemView.findViewById(R.id.txt_message);
-            this.timestamp = (TextView) itemView.findViewById(R.id.txt_timestamp);
-            this.image = (ImageView) itemView.findViewById(R.id.img_message);
         }
     }
 }
