@@ -6,6 +6,7 @@ import android.bluetooth.BluetoothSocket;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.util.Log;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
@@ -14,19 +15,30 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 import mbr.personal.unihack_smartbits.R;
 import mbr.personal.unihack_smartbits.adapters.AdapterMessages;
+import mbr.personal.unihack_smartbits.exceptions.AuthenticationException;
 import mbr.personal.unihack_smartbits.types.MessageItem;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 public class ChatActivity extends AppCompatActivity {
+    private static final String TAG = ChatActivity.class.getSimpleName();
 
     private String connectedDevice;
 
@@ -68,6 +80,8 @@ public class ChatActivity extends AppCompatActivity {
             ClientClass client = new ClientClass(device);
             client.start();
 
+            connectedDevice = device.getAddress();
+
 
             btnSend = findViewById(R.id.btn_send);
             txtMessage = findViewById(R.id.etx_message);
@@ -75,6 +89,58 @@ public class ChatActivity extends AppCompatActivity {
         } catch (Exception err) {
             Toast.makeText(this, err.getMessage(), Toast.LENGTH_LONG).show();
         }
+    }
+
+    private void saveMessageToDatabase(String message, boolean phone)
+            throws InterruptedException, JSONException {
+        String url = "http://85.120.206.70:8080/api/v1/users/signin";
+        MediaType JSON = MediaType.get("application/json; charset=utf-8");
+
+        JSONObject payload = new JSONObject();
+        payload.put("glove_address", connectedDevice);
+        payload.put("message", message);
+        payload.put("is_phone", phone);
+        OkHttpClient client = new OkHttpClient();
+        RequestBody body = RequestBody.create(payload.toString(), JSON);
+        Thread loginThread = new Thread(() -> {
+            Request request = new Request.Builder()
+                    .url(url)
+                    .header("User-Agent", "OkHttp Headers.java")
+                    .addHeader("Authorization", LoginActivity.accessToken)
+                    .post(body)
+                    .build();
+            try (Response response = client.newCall(request).execute()) {
+                if (response.isSuccessful()) {
+                    Objects.requireNonNull(response.body());
+                    JSONObject responseJson = new JSONObject(response.body().string());
+                    LoginActivity.accessToken = responseJson.get("access_token").toString();
+                    LoginActivity.refreshToken = responseJson.get("refresh_token").toString();
+                } else {
+                    Toast.makeText(ChatActivity.this, "Failed to sign in user!",
+                            Toast.LENGTH_SHORT).show();
+                    throw new AuthenticationException(response.body().string());
+                }
+            } catch (AuthenticationException exc) {
+                Toast.makeText(ChatActivity.this, "Log in failed.",
+                        Toast.LENGTH_SHORT).show();
+                Log.e(TAG, "Authentication failed! With message below: ");
+                Log.e(TAG, exc.getMessage());
+            } catch (JSONException exc) {
+                Log.e(TAG, "Failed packing the payload for the request!");
+                Log.e(TAG, exc.getMessage());
+                Toast.makeText(ChatActivity.this, "The input is of incorrect format.",
+                        Toast.LENGTH_SHORT).show();
+            } catch (IOException exc) {
+                Log.e(TAG, "Failed to make the request to the server.");
+                Log.e(TAG, exc.getMessage());
+                Toast.makeText(ChatActivity.this, "The input is of incorrect format.",
+                        Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        loginThread.start();
+
+        loginThread.join();
     }
 
     Handler mHandler = new Handler(msg -> {
@@ -100,7 +166,7 @@ public class ChatActivity extends AppCompatActivity {
 
                 byte[] readBuffer = (byte[]) msg.obj;
                 String tempMsg = new String(readBuffer,0, msg.arg1);
-                MessageItem msgItem = new MessageItem(java.time.LocalTime.now().toString(), tempMsg, true);
+                MessageItem msgItem = new MessageItem(tempMsg, true);
                 if (tempMsg.equals("\r")) break;
                 adapter.add(msgItem);
                 adapter.notifyDataSetChanged();
@@ -153,7 +219,8 @@ public class ChatActivity extends AppCompatActivity {
             OutputStream tempOut = null;
             btnSend.setOnClickListener(v -> {
                         this.write(txtMessage.getText().toString().getBytes());
-                        MessageItem item = new MessageItem(LocalTime.now().toString(), txtMessage.getText().toString(), false);
+                        MessageItem item =
+                                new MessageItem(txtMessage.getText().toString(), false);
                         adapter.add(item);
                         adapter.notifyDataSetChanged();
                     }
